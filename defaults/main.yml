@@ -1,0 +1,4 @@
+---
+# defaults file for mapr_drill
+
+drill_version: 0.7.0

@@ -1,0 +1,6 @@
+---
+# tasks file for mapr_drill
+
+- name: install mapr-drill
+  yum: name=mapr-drill-{{drill_version}} state=present
+
