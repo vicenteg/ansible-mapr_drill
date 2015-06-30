@@ -1,9 +1,7 @@
 ---
 # tasks file for mapr_drill
 
-- name: debug drill_version
-  debug: var=drill_version
-
 - name: install mapr-drill
   yum: name="mapr-drill-{{drill_version}}" state=present
+  environment: proxy_env
 
