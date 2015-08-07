@@ -2,6 +2,40 @@
 # tasks file for mapr_drill
 
 - name: install mapr-drill
-  yum: name="mapr-drill-{{drill_version}}" state=present
+  yum: name="mapr-drill-{{drill_version}}.{{drill_build}}" state=present
   environment: proxy_env
+  notify: reconfigure roles
+
+# XXX: Adding as a single line is not as good as parsing the HOCON
+# XXX: and writing it back out, perhaps in a hocon module. But pyhocon
+# XXX: does not support a syntax that drill uses liberally, so we cannot
+# XXX: yet parse the drill config.
+- name: enable impersonation
+  lineinfile:
+    dest: /opt/mapr/drill/drill-{{drill_version}}/conf/drill-override.conf
+    line: "drill.exec.impersonation: { enabled: true, max_chained_user_hops: 3 }"
+    state: present
+
+- name: create jpam library directory
+  file: path=/opt/jpam state=directory mode=0755
+  when: secure_cluster is defined and secure_cluster == "True"
+
+- name: link to MapR JPam libs
+  file: src=/opt/mapr/lib/{{item}} dest=/opt/jpam/{{item}} state=link
+  with_items:
+    - libjpam.so
+    - JPam-1.1.jar
+  when: secure_cluster is defined and secure_cluster == "True"
+
+- name: add java.library.path to drill-env.sh
+  lineinfile: dest=/opt/mapr/drill/drill-{{drill_version}}/conf/drill-env.sh line='export DRILLBIT_JAVA_OPTS=" -Djava.library.path=/opt/jpam"' regexp='java.library.path' state=present
+  when: secure_cluster is defined and secure_cluster == "True"
+
+- name: enable PAM authentication
+  lineinfile:
+    dest: /opt/mapr/drill/drill-{{drill_version}}/conf/drill-override.conf
+    regexp: pam_profiles
+    line: 'drill.exec { security.user.auth { enabled: true, packages += "org.apache.drill.exec.rpc.user.security", impl: "pam", pam_profiles: [ "login","sudo","sshd","password-auth" ] } }'
+    state: present
+  when: secure_cluster is defined and secure_cluster == "True"
 
