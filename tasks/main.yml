@@ -6,6 +6,20 @@
   environment: proxy_env
   notify: reconfigure roles
 
+- name: register zookeeper 
+  sudo: yes
+  sudo_user: '{{mapr_admin_username}}'
+  command: maprcli node listzookeepers -noheader
+  register: zookeepers
+
+- name: configure zookeepers
+  lineinfile:
+    dest: /opt/mapr/drill/drill-{{drill_version}}/conf/drill-override.conf
+    line: 'zk.connect: "{{zookeepers.stdout|trim}}"'
+    regexp: zk.connect
+    state: present
+  register: zookeepers_added
+
 # XXX: Adding as a single line is not as good as parsing the HOCON
 # XXX: and writing it back out, perhaps in a hocon module. But pyhocon
 # XXX: does not support a syntax that drill uses liberally, so we cannot
@@ -15,6 +29,7 @@
     dest: /opt/mapr/drill/drill-{{drill_version}}/conf/drill-override.conf
     line: "drill.exec.impersonation: { enabled: true, max_chained_user_hops: 3 }"
     state: present
+  register: impersonation_configured
 
 - name: create jpam library directory
   file: path=/opt/jpam state=directory mode=0755
@@ -26,10 +41,12 @@
     - libjpam.so
     - JPam-1.1.jar
   when: secure_cluster is defined and secure_cluster == "True"
+  register: jpam_linked
 
 - name: add java.library.path to drill-env.sh
   lineinfile: dest=/opt/mapr/drill/drill-{{drill_version}}/conf/drill-env.sh line='export DRILLBIT_JAVA_OPTS=" -Djava.library.path=/opt/jpam"' regexp='java.library.path' state=present
   when: secure_cluster is defined and secure_cluster == "True"
+  register: jpam_added
 
 - name: enable PAM authentication
   lineinfile:
@@ -38,4 +55,21 @@
     line: 'drill.exec { security.user.auth { enabled: true, packages += "org.apache.drill.exec.rpc.user.security", impl: "pam", pam_profiles: [ "login","sudo","sshd","password-auth" ] } }'
     state: present
   when: secure_cluster is defined and secure_cluster == "True"
+  register: pam_enabled
+
+- name: pause for a bit
+  pause: seconds=30
+
+- name: restart drillbits now
+  sudo: yes
+  sudo_user: '{{mapr_admin_username}}'
+  command: maprcli node services -action restart -name drill-bits -nodes {{ansible_fqdn}}
+  when: pam_enabled|changed or jpam_added|changed or jpam_linked|changed or impersonation_configured|changed or zookeepers_added|changed
+
+- name: wait for drillbits to come up
+  wait_for: port=8047 delay=10 timeout=60
+
+- name: add hive storage plugin
+  template: src=hive-storage-plugin.json.j2 dest=/tmp/hive-storage-plugin.json mode=0644
+  notify: add hive storage plugin
 

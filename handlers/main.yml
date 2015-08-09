@@ -6,10 +6,11 @@
   sudo_user: root
   command: /opt/mapr/server/configure.sh -R
 
-- name: wait a bit
-  pause: seconds=10
-
 - name: restart drillbits
   sudo: yes
   sudo_user: "{{mapr_admin_username}}"
   command: maprcli node services -action restart -name drill-bits -nodes {{ansible_fqdn}}
+
+- name: add hive storage plugin
+  shell: 'curl -H "Content-Type: application/json" -X POST -d @/tmp/hive-storage-plugin.json http://localhost:8047/storage/hive.json'
+  run_once: true

@@ -1,0 +1,14 @@
+{
+	"name" : "hive",
+	"config" : {
+		"type": "hive",
+		"enabled": true,
+		"configProps": {
+			"hive.metastore.uris": "thrift://{{hive_metastore_host}}:9083",
+			"javax.jdo.option.ConnectionURL": "jdbc:mysql://{{hive_metastore_host}}:3306/metastore",
+			"hive.metastore.warehouse.dir": "/user/hive/warehouse",
+			"fs.default.name": "maprfs:///",
+			"hive.metastore.sasl.enabled": "true"
+		}
+	}
+}
