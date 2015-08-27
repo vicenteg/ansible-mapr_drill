@@ -8,7 +8,7 @@
 			"javax.jdo.option.ConnectionURL": "jdbc:mysql://{{hive_metastore_host}}:3306/metastore",
 			"hive.metastore.warehouse.dir": "/user/hive/warehouse",
 			"fs.default.name": "maprfs:///",
-			"hive.metastore.sasl.enabled": "true"
+			"hive.metastore.sasl.enabled": {% if secure_cluster is defined and secure_cluster == 'True' %}"true"{% else %}"false"{% endif %}
 		}
 	}
 }

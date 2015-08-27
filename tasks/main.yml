@@ -33,19 +33,16 @@
 
 - name: create jpam library directory
   file: path=/opt/jpam state=directory mode=0755
-  when: secure_cluster is defined and secure_cluster == "True"
 
 - name: link to MapR JPam libs
   file: src=/opt/mapr/lib/{{item}} dest=/opt/jpam/{{item}} state=link
   with_items:
     - libjpam.so
     - JPam-1.1.jar
-  when: secure_cluster is defined and secure_cluster == "True"
   register: jpam_linked
 
 - name: add java.library.path to drill-env.sh
   lineinfile: dest=/opt/mapr/drill/drill-{{drill_version}}/conf/drill-env.sh line='export DRILLBIT_JAVA_OPTS=" -Djava.library.path=/opt/jpam"' regexp='java.library.path' state=present
-  when: secure_cluster is defined and secure_cluster == "True"
   register: jpam_added
 
 - name: enable PAM authentication
@@ -54,7 +51,6 @@
     regexp: pam_profiles
     line: 'drill.exec { security.user.auth { enabled: true, packages += "org.apache.drill.exec.rpc.user.security", impl: "pam", pam_profiles: [ "login","sudo","sshd","password-auth" ] } }'
     state: present
-  when: secure_cluster is defined and secure_cluster == "True"
   register: pam_enabled
 
 - name: pause for a bit
