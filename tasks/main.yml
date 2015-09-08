@@ -3,6 +3,8 @@
 
 - name: install mapr-drill
   yum: name="mapr-drill-{{drill_version}}.{{drill_build}}" state=present
+  sudo: yes
+  sudo_user: root
   environment: proxy_env
   notify: reconfigure roles
 
@@ -13,6 +15,8 @@
   register: zookeepers
 
 - name: configure zookeepers
+  sudo: yes
+  sudo_user: '{{mapr_admin_username}}'
   lineinfile:
     dest: /opt/mapr/drill/drill-{{drill_version}}/conf/drill-override.conf
     line: 'zk.connect: "{{zookeepers.stdout|trim}}"'
@@ -25,6 +29,8 @@
 # XXX: does not support a syntax that drill uses liberally, so we cannot
 # XXX: yet parse the drill config.
 - name: enable impersonation
+  sudo: yes
+  sudo_user: '{{mapr_admin_username}}'
   lineinfile:
     dest: /opt/mapr/drill/drill-{{drill_version}}/conf/drill-override.conf
     line: "drill.exec.impersonation: { enabled: true, max_chained_user_hops: 3 }"
@@ -32,9 +38,13 @@
   register: impersonation_configured
 
 - name: create jpam library directory
-  file: path=/opt/jpam state=directory mode=0755
+  sudo: yes
+  sudo_user: root
+  file: path=/opt/jpam state=directory mode=0755 owner='{{mapr_admin_username}}'
 
 - name: link to MapR JPam libs
+  sudo: yes
+  sudo_user: '{{mapr_admin_username}}'
   file: src=/opt/mapr/lib/{{item}} dest=/opt/jpam/{{item}} state=link
   with_items:
     - libjpam.so
@@ -42,10 +52,14 @@
   register: jpam_linked
 
 - name: add java.library.path to drill-env.sh
+  sudo: yes
+  sudo_user: '{{mapr_admin_username}}'
   lineinfile: dest=/opt/mapr/drill/drill-{{drill_version}}/conf/drill-env.sh line='export DRILLBIT_JAVA_OPTS=" -Djava.library.path=/opt/jpam"' regexp='java.library.path' state=present
   register: jpam_added
 
 - name: enable PAM authentication
+  sudo: yes
+  sudo_user: '{{mapr_admin_username}}'
   lineinfile:
     dest: /opt/mapr/drill/drill-{{drill_version}}/conf/drill-override.conf
     regexp: pam_profiles
@@ -66,6 +80,8 @@
   wait_for: port=8047 delay=10 timeout=60
 
 - name: add hive storage plugin
+  sudo: yes
+  sudo_user: '{{mapr_admin_username}}'
   template: src=hive-storage-plugin.json.j2 dest=/tmp/hive-storage-plugin.json mode=0644
   notify: add hive storage plugin
 
