@@ -3,8 +3,8 @@
 
 proxy_env: { }
 
-drill_version: 1.1.0
-drill_build: 32884-1
+drill_version: 1.2.0
+drill_build: 201510071035-1
 
 mapr_admin_username: mapr
 hive_metastore_host: '{{groups["hiveserver"][0]}}'
