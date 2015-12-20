@@ -32,7 +32,16 @@
     dest: /opt/mapr/drill/drill-{{drill_version}}/conf/drill-override.conf
     line: "drill.exec.impersonation: { enabled: true, max_chained_user_hops: 3 }"
     state: present
+  when: secure_cluster is defined and secure_cluster == True
   register: impersonation_configured
+
+- name: enable SSL for drillbit web UI
+  sudo_user: '{{mapr_admin_username}}'
+  lineinfile:
+    dest: /opt/mapr/drill/drill-{{drill_version}}/conf/drill-override.conf
+    line: "drill.exec.http: { ssl_enabled: true }"
+    state: present
+  when: secure_cluster is defined and secure_cluster == True
 
 - name: create jpam library directory
   sudo_user: root
@@ -59,6 +68,11 @@
     line: 'drill.exec { security.user.auth { enabled: true, packages += "org.apache.drill.exec.rpc.user.security", impl: "pam", pam_profiles: [ "login","sudo","sshd","password-auth" ] } }'
     state: present
   register: pam_enabled
+  when: secure_cluster is defined and secure_cluster == True
+
+#- name: start drillbits now
+#  sudo_user: '{{mapr_admin_username}}'
+#  command: maprcli node services -action start -name drill-bits -nodes {{ansible_fqdn}}
 
 - name: pause for a bit
   pause: seconds=30
@@ -66,7 +80,7 @@
 - name: restart drillbits now
   sudo_user: '{{mapr_admin_username}}'
   command: maprcli node services -action restart -name drill-bits -nodes {{ansible_fqdn}}
-  when: pam_enabled|changed or jpam_added|changed or jpam_linked|changed or impersonation_configured|changed or zookeepers_added|changed
+#  when: pam_enabled|changed or jpam_added|changed or jpam_linked|changed or impersonation_configured|changed or zookeepers_added|changed
 
 - name: wait for drillbits to come up
   wait_for: port=8047 delay=10 timeout=60
@@ -75,5 +89,19 @@
   sudo_user: '{{mapr_admin_username}}'
   template: src=hive-storage-plugin.json.j2 dest=/tmp/hive-storage-plugin.json mode=0644
   when: hive_enabled
-  notify: add hive storage plugin
+
+- name: log in to drillbit
+  command: curl -c .drillbit_cookies -k -f -X POST -d j_username={{mapr_admin_username|default("mapr")}} -d j_password={{maprlogin_clear_pw|default("mapr")}} https://localhost:8047/j_security_check
+  run_once: true
+  when: hive_enabled and secure_cluster is defined and secure_cluster == True
+
+- name: add hive storage plugin (SSL)
+  command: 'curl -b .drillbit_cookies -k -f -H "Content-Type: application/json" -X POST -d @/tmp/hive-storage-plugin.json https://localhost:8047/storage/hive.json'
+  run_once: true
+  when: secure_cluster is defined and secure_cluster == True
+
+- name: add hive storage plugin (no SSL)
+  shell: 'curl -f -H "Content-Type: application/json" -X POST -d @/tmp/hive-storage-plugin.json http://localhost:8047/storage/hive.json'
+  run_once: true
+  when: secure_cluster is not defined or secure_cluster == False
 
