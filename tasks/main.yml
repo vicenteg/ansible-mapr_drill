@@ -88,7 +88,7 @@
 - name: create hive storage plugin json file
   sudo_user: '{{mapr_admin_username}}'
   template: src=hive-storage-plugin.json.j2 dest=/tmp/hive-storage-plugin.json mode=0644
-  when: hive_enabled
+  when: hive_enabled == True
 
 - name: log in to drillbit
   command: curl -c .drillbit_cookies -k -f -X POST -d j_username={{mapr_admin_username|default("mapr")}} -d j_password={{maprlogin_clear_pw|default("mapr")}} https://localhost:8047/j_security_check
@@ -98,10 +98,10 @@
 - name: add hive storage plugin (SSL)
   command: 'curl -b .drillbit_cookies -k -f -H "Content-Type: application/json" -X POST -d @/tmp/hive-storage-plugin.json https://localhost:8047/storage/hive.json'
   run_once: true
-  when: secure_cluster is defined and secure_cluster == True
+  when: hive_enabled == True and secure_cluster is defined and secure_cluster == True
 
 - name: add hive storage plugin (no SSL)
   shell: 'curl -f -H "Content-Type: application/json" -X POST -d @/tmp/hive-storage-plugin.json http://localhost:8047/storage/hive.json'
   run_once: true
-  when: secure_cluster is not defined or secure_cluster == False
+  when: hive_enabled == True and (secure_cluster is not defined or secure_cluster == False)
 
