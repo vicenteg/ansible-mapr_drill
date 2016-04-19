@@ -43,6 +43,19 @@
     state: present
   when: secure_cluster is defined and secure_cluster == True
 
+- name: create MapR FS pstore
+  sudo_user: '{{mapr_admin_username}}'
+  run_once: yes
+  command: hadoop fs -mkdir -p /apps/drill/pstore
+
+- name: enable MapR FS pstore
+  sudo_user: '{{mapr_admin_username}}'
+  lineinfile:
+    dest: /opt/mapr/drill/drill-{{drill_version}}/conf/drill-override.conf
+    line: 'drill.exec.sys.store.provider.zk.blobroot: "maprfs:///apps/drill/pstore/"'
+    regexp: "drill.exec.sys.store.provider.zk.blobroot"
+    state: present
+
 - name: create jpam library directory
   sudo_user: root
   file: path=/opt/jpam state=directory mode=0755 owner='{{mapr_admin_username}}'
