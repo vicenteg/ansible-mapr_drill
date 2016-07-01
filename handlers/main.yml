@@ -2,13 +2,13 @@
 # handlers file for mapr_drill
 
 - name: reconfigure roles
-  sudo: yes
-  sudo_user: root
+  become: yes
+  become_user: root
   command: /opt/mapr/server/configure.sh -R
 
 - name: restart drillbits
-  sudo: yes
-  sudo_user: "{{mapr_admin_username}}"
+  become: yes
+  become_user: "{{mapr_admin_username}}"
   command: maprcli node services -action restart -name drill-bits -nodes {{ansible_fqdn}}
 
 - name: add hive storage plugin
